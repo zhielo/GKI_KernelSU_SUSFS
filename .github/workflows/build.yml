@@ -41,6 +41,15 @@ jobs:
     name: "${{ inputs.kernel_version }}.${{ inputs.sublevel }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }} (${{ inputs.variant }})"
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # Cheap first filter for the 5.10.236-android12 target: kernel_version and
+    # android_version are known directly from the caller's inputs, so any
+    # other matrix combination is skipped here before any runner time is
+    # spent. The exact sublevel (236) isn't reliable until it's extracted
+    # from the downloaded kernel source, so it's re-checked in the
+    # "Verify Target Sublevel" step below instead of here.
+    if: >-
+      inputs.kernel_version == '5.10' &&
+      inputs.android_version == 'android12'
 
     steps:
     - name: Checkout Repository
@@ -95,6 +104,7 @@ jobs:
     - name: Set Build Timestamp from Kernel Commit
       shell: bash
       run: |
+        set -euo pipefail
         set -x
         # Hardcode the build timestamp to the 5th day of the patch level
         # at 04:20 UTC, using the existing timestamp formats expected by the build.
@@ -128,6 +138,17 @@ jobs:
         sublevel: ${{ inputs.sublevel }}
         os_patch_level: ${{ inputs.os_patch_level }}
         variant: ${{ inputs.variant }}
+
+    - name: Verify Target Sublevel
+      shell: bash
+      run: |
+        set -euo pipefail
+        EXTRACTED_SUBLEVEL="${{ steps.extract.outputs.sublevel }}"
+        if [[ "$EXTRACTED_SUBLEVEL" != "236" ]]; then
+          echo "::error::Extracted sublevel '${EXTRACTED_SUBLEVEL}' does not match the required target 5.10.236-android12. Aborting build."
+          exit 1
+        fi
+        echo "Confirmed target: 5.10.${EXTRACTED_SUBLEVEL}-android12"
 
     - name: Kernel Fixes
       uses: ./.github/actions/kernel-fixes
@@ -464,3 +485,4 @@ jobs:
         path: ${{ github.workspace }}/AnyKernel3/**
         if-no-files-found: ignore
         compression-level: 9
+
