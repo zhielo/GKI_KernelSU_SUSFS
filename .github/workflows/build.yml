@@ -41,15 +41,16 @@ jobs:
     name: "${{ inputs.kernel_version }}.${{ inputs.sublevel }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }} (${{ inputs.variant }})"
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    # Cheap first filter for the 5.10.236-android12 target: kernel_version and
-    # android_version are known directly from the caller's inputs, so any
-    # other matrix combination is skipped here before any runner time is
-    # spent. The exact sublevel (236) isn't reliable until it's extracted
-    # from the downloaded kernel source, so it's re-checked in the
-    # "Verify Target Sublevel" step below instead of here.
+    # Filter for the 5.10.236-android12 target using the matrix's own
+    # sublevel input, so entries pinned to a sublevel that's already known
+    # NOT to be 236 (e.g. 43, 66, 81) skip instantly instead of running a
+    # full build that only fails later. The "X" / "lts" entry has no fixed
+    # sublevel until the kernel source is downloaded, so it's let through
+    # and the real value is checked in "Verify Target Sublevel" below.
     if: >-
       inputs.kernel_version == '5.10' &&
-      inputs.android_version == 'android12'
+      inputs.android_version == 'android12' &&
+      (inputs.sublevel == '236' || inputs.sublevel == 'X' || inputs.os_patch_level == 'lts')
 
     steps:
     - name: Checkout Repository
